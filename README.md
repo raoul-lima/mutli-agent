@@ -10,10 +10,11 @@ Utilisateur (Streamlit)
         ▼
    LangGraph Agent (ReAct)  ←── mémoire PostgreSQL (checkpointer)
         │
-        ├── rag_search_tool      → PGVector + Full-Text Search (RRF)
-        ├── sql_database_tool    → PostgreSQL métier (SELECT only)
-        ├── graph_rag_tool       → Neo4j (relations / hiérarchies)
-        └── python_calculator_tool → Python REPL
+        ├── rag_search_tool         → PGVector + Full-Text Search (RRF)
+        ├── describe_schema_tool    → schéma tables/colonnes (base métier)
+        ├── sql_database_tool       → PostgreSQL métier (SELECT only)
+        ├── graph_rag_tool          → Neo4j (relations / hiérarchies)
+        └── python_calculator_tool  → Python REPL
 ```
 
 | Composant | Rôle |
@@ -121,12 +122,14 @@ mutli-agent/
 ## Exemples de questions
 
 - *Quelles sont les règles RH sur les congés ?* → `rag_search_tool`
-- *Combien de commandes a passé le client X ?* → `sql_database_tool`
+- *Quelles tables / colonnes existe-t-il ?* → `describe_schema_tool`
+- *Combien de commandes a passé le client X ?* → `describe_schema_tool` puis `sql_database_tool`
 - *Quelles entités sont liées à ce contrat ?* → `graph_rag_tool`
 - *Calcule le total et la moyenne de ces montants* → `python_calculator_tool`
 
 ## Notes
 
 - `sql_database_tool` n’autorise que les requêtes `SELECT`.
+- Avant une requête SQL, l’agent doit appeler `describe_schema_tool` pour connaître le schéma exact.
 - La base métier (`DB_BUSINESS_URL`) est distincte de la base RAG (`DB_RAG_URL` / `DB_URL`).
 - Les secrets (`.env`) et le contenu de `docs/` ne sont pas versionnés.

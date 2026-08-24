@@ -76,8 +76,65 @@ def rag_search_tool(query: str) -> str:
     return "\n\n---\n\n".join(results)
 
 @tool
+def describe_schema_tool(table_name: str = "") -> str:
+    """
+    Retourne le schéma de la base métier (tables, colonnes, types).
+    Appelez cet outil AVANT sql_database_tool pour connaître les noms exacts
+    des tables et colonnes. Passez table_name pour une seule table, ou laissez
+    vide pour lister tout le schéma public.
+    """
+    try:
+        with engine_business.connect() as conn:
+            if table_name and table_name.strip():
+                name = table_name.strip().lower()
+                result = conn.execute(
+                    text("""
+                        SELECT column_name, data_type, is_nullable, column_default
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public' AND table_name = :table_name
+                        ORDER BY ordinal_position
+                    """),
+                    {"table_name": name},
+                )
+                rows = result.fetchall()
+                if not rows:
+                    return f"Table '{name}' introuvable dans le schéma public."
+                columns = [
+                    {
+                        "column": r.column_name,
+                        "type": r.data_type,
+                        "nullable": r.is_nullable,
+                        "default": r.column_default,
+                    }
+                    for r in rows
+                ]
+                return json.dumps({"table": name, "columns": columns}, ensure_ascii=False, indent=2)
+
+            tables_result = conn.execute(text("""
+                SELECT c.table_name, c.column_name, c.data_type, c.is_nullable
+                FROM information_schema.columns c
+                JOIN information_schema.tables t
+                  ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+                WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+                ORDER BY c.table_name, c.ordinal_position
+            """))
+            schema: dict = {}
+            for row in tables_result:
+                schema.setdefault(row.table_name, []).append({
+                    "column": row.column_name,
+                    "type": row.data_type,
+                    "nullable": row.is_nullable,
+                })
+            if not schema:
+                return "Aucune table trouvée dans le schéma public."
+            return json.dumps(schema, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return f"Erreur describe_schema : {str(e)}"
+
+@tool
 def sql_database_tool(query: str) -> str:
-    """Interroge la base Métier (customers, orders, products, employees, sales) sur le port 5432."""
+    """Interroge la base Métier (customers, orders, products, employees, sales) sur le port 5432.
+    Utilisez describe_schema_tool d'abord pour connaître le schéma exact."""
     if not query.strip().upper().startswith("SELECT"):
         return "Erreur : Seules les requêtes SELECT sont autorisées."
     try:
@@ -116,14 +173,23 @@ def get_agent_executor():
         google_api_key=api_key
     )
 
-    tools = [rag_search_tool, sql_database_tool, python_calculator_tool, graph_rag_tool]
+    tools = [
+        rag_search_tool,
+        describe_schema_tool,
+        sql_database_tool,
+        python_calculator_tool,
+        graph_rag_tool,
+    ]
 
     system_prompt = (
         "Vous êtes un assistant IA d'entreprise pour Grossiste Mada.\n"
-        "Vous disposez de 3 outils spécialisés :\n"
-        "- `rag_search_tool` (Port 5433) : Pour les documents PDF et règles internes.\n"
-        "- `sql_database_tool` (Port 5432) : Pour les données relationnelles (customers, orders, products, employees, sales).\n"
-        "- `python_calculator_tool` : Pour les calculs complexes.\n"
+        "Vous disposez de 5 outils spécialisés :\n"
+        "- `rag_search_tool` : documents PDF et règles internes.\n"
+        "- `describe_schema_tool` : schéma de la base métier (tables/colonnes). "
+        "Appelez-le AVANT toute requête SQL si vous ne connaissez pas encore le schéma.\n"
+        "- `sql_database_tool` : données relationnelles (SELECT uniquement).\n"
+        "- `python_calculator_tool` : calculs complexes.\n"
+        "- `graph_rag_tool` : relations et hiérarchies.\n"
         "Vous avez de la mémoire grâce à LangGraph : réutilisez le contexte des messages précédents."
     )
 
