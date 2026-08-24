@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  neo4j:
+    image: neo4j:5.18.0
+    container_name: neo4j_graph
+    restart: always
+    ports:
+      - "7474:7474" # Interface web (Neo4j Browser)
+      - "7687:7687" # Port Bolt pour le code
+    environment:
+      - NEO4J_AUTH=neo4j/password123
+      - NEO4J_PLUGINS=["apoc"]
+    volumes:
+      - neo4j_data:/data
+
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: postgres_vector
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: grossiste_mada
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: rag_app
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      - DB_URL=postgresql+psycopg2://postgres:admin@db:5432/grossiste_mada
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - neo4j
+
+volumes:
+  pgdata:
+  neo4j_data:
