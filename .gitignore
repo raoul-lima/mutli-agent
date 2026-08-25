@@ -1,4 +1,21 @@
+# Secrets
 .env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Données non versionnées (PDF d'entreprise et CSV métier)
+docs/files_entreprise/
+docs/csv_files/
+docs/superpowers/
+
+# Divers
+.DS_Store
+tests/*
+initdb/*
+
 docs/*
-!docs/superpowers/
-!docs/superpowers/**
+

@@ -1,6 +1,7 @@
 import uuid
 import streamlit as st
-from agent_service import run_agent
+from systems.monitoring import tracing_status
+from systems.runner import run_agent
 
 st.set_page_config(page_title="Agent IA avec Mémoire - Grossiste Mada", page_icon="🤖", layout="wide")
 st.title("🤖 Agent Intelligent avec Mémoire Persistante (PostgreSQL)")
@@ -18,6 +19,14 @@ with st.sidebar:
         st.session_state.thread_id = str(uuid.uuid4())
         st.session_state.messages = []
         st.rerun()
+
+    st.header("📊 Observabilité")
+    tracing_active, tracing_label = tracing_status()
+    if tracing_active:
+        st.success(tracing_label)
+        st.link_button("Ouvrir LangSmith", "https://smith.langchain.com")
+    else:
+        st.warning(tracing_label)
 
 # Historique UI local
 if "messages" not in st.session_state:
